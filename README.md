@@ -1,10 +1,12 @@
 # AP Controller - Access Point (AP) Management System for OpenWrt/LuCI
- 
+
 [Wersja polska](README.pl.md)
- 
+
+**⚠️ MONITORING-ONLY MODE ENABLED**: This installation is configured to monitor access points without making any configuration changes. See [Monitoring-Only Mode](#monitoring-only-mode) section below for details.
+
 The application is a lightweight Access Point (AP) management system, developed as an extension for OpenWrt/LuCI. Its main purpose is to monitor network devices and automate the creation and update of Wi-Fi networks without requiring additional software packages to be installed on the access points.
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-devices.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-devices.png">
  
 The application provides the following features:
 - adding and defining devices (running on OpenWrt) and storing access credentials (such as IP address, port, username, and password, URL to the GUI)
@@ -16,13 +18,13 @@ The application provides the following features:
 - deploying Wi-Fi configurations to devices in groups
 - defining a user script executed before setting up or updating Wi-Fi parameters
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-devices-edit.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-devices-edit.png">
  
 Device monitoring is performed periodically by a cron-executed script. For a device to be monitored, it must be enabled (the “Enabled” option) and have valid access credentials provided. The system sends a script to the AP (via scp) and executes it through ssh, which allows retrieving operational data from the access point. A device will be displayed with Offline status if it fails to provide data within twice and half the defined polling interval (e.g., 12.5 minutes if the polling cycle is set to 5 minutes).
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-wifi.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-wifi.png">
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-wifi-edit.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-wifi-edit.png">
  
 Creating new Wi-Fi configurations includes setting default interface state, selected band, SSID, encryption type, password, and binding the Wi-Fi interface to a specific network. When sending a configuration if no Wi-Fi interfaces matching the provided parameters exist, a new one will be created. If a configuration with the specified SSID, frequency band, and network assignment already exists, it will be updated (enabled/disabled, encryption type, and password). The application does not read or remove existing Wi-Fi configurations from devices. Currently, it only supports defining new wireless interfaces and updating existing ones.
  
@@ -33,13 +35,13 @@ Grouping allows assigning specific Wi-Fi networks to selected devices and deploy
  
 The application provides simple configuration of the device polling interval and selection of displayed columns. For better usability, only necessary columns should be enabled for display.
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-settings.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-settings.png">
  
 The system offers a simplified but centralized management solution for OpenWrt-based access points. With periodic monitoring, network issues can be quickly identified, while grouping and automated Wi-Fi configuration enable efficient management of multiple devices simultaneously. The application is designed as a lightweight tool, requiring minimal dependencies and minimal interference with the access points themselves.
 
 ## Using key-based authentication
 
-Authorization in the AP is by default performed using a username/password pair. If you are using key-based authentication, select the "Use SSH Key" option and, if necessary, specify the key file. Keys can be generated with the following command (on a router with apcontroller installed):
+Authorization in the AP is by default performed using a username/password pair. If you are using key-based authentication, select the "Use SSH Key" option and, if necessary, specify the key file. Keys can be generated with the following command (on a router with apinfo installed):
 ```
 mkdir /root/.ssh
 dropbearkey -f /root/.ssh/id_dropbear
@@ -53,19 +55,62 @@ The system does not read the current configuration from devices. It only allows 
 - In the "Wi-Fi" tab, define a network with any name, enter "OpenWrt" as the "SSID," specify the bands on which it will broadcast, as well as the encryption type and key. For "Network," enter "lan"—this is the default logical name of the local network.
 - In the "AP Group" tab, name the group as desired, select the devices to be included in the group from the list, and select the list of Wi-Fi networks these devices will advertise.
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-apgroup-edit.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-apgroup-edit.png">
  
 The "Delete all" option allows you to completely delete existing Wi-Fi networks before making changes to the device. Only the configuration sections for the wireless interfaces are deleted.
 The "Use additional script" option allows you to use a custom script that will be executed before attempting to set up or modify any defined Wi-Fi network on any band.
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-additionalscript.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-additionalscript.png">
  
 This allows users to independently configure wired networks, bridges, and create their own VLANs. The script must be a valid shell script. The script can use several variables ("$_ENABLED", "$_SSID", "$_BAND", "$_NETWORK") that will contain the appropriate parameters for the Wi-Fi network being forwarded.
 - After saving the changes, select the "Send" button, which will send and execute the configuration on all enabled devices defined in this group.
  
-<img src="https://raw.githubusercontent.com/obsy/apcontroller/refs/heads/main/img/tab-apgroup.png">
+<img src="https://raw.githubusercontent.com/obsy/apinfo/refs/heads/main/img/tab-apgroup.png">
  
 ## User-Defined Scripts
-The device menu allows you to perform actions related to a specific device, which are defined as shell scripts. The default configuration includes two scripts – "Log" and "Reboot"; the user can create any script that will be executed on the specified router/AP. Scripts should be placed in the /usr/share/apcontroller/scripts directory.
+The device menu allows you to perform actions related to a specific device, which are defined as shell scripts. The default configuration includes two scripts – "Log" and "Reboot"; the user can create any script that will be executed on the specified router/AP. Scripts should be placed in the /usr/share/apinfo/scripts directory.
 
 The #desc comment indicates the name of the script displayed in the list of available scripts. Including #warn means that before executing the script, you will be asked if you really want to execute it.
+
+
+## Monitoring-Only Mode
+
+This installation has been configured to operate in **monitoring-only mode**, which means:
+
+### What Works
+- ✅ Device monitoring and status tracking
+- ✅ Viewing connected wireless clients
+- ✅ Downloading logs from devices
+- ✅ Pinging and rebooting devices
+- ✅ Executing user-defined scripts
+- ✅ All read-only operations
+
+### What is Disabled
+- ❌ Sending Wi-Fi configurations to access points
+- ❌ Creating new wireless interfaces on APs
+- ❌ Modifying existing wireless configurations
+- ❌ Deleting wireless interfaces
+
+### Re-enabling Configuration Changes
+
+If you need to re-enable the ability to modify AP configurations, edit the file:
+```
+apinfo/files/usr/share/apinfo/apinfo-agent-setconfig
+```
+
+Comment out or remove these lines (lines 4-6):
+```bash
+# MONITORING-ONLY MODE: Prevent any configuration changes to access points
+echo "Configuration changes are disabled (monitoring-only mode)"
+exit 0
+```
+
+After making this change, rebuild and reinstall the package for the changes to take effect.
+
+### Why Monitoring-Only Mode?
+
+This mode is useful when you want to:
+- Monitor existing AP deployments without risk of accidental changes
+- Use the system purely for visibility and diagnostics
+- Maintain manual control over AP configurations
+- Prevent unauthorized configuration modifications

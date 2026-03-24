@@ -1,0 +1,32 @@
+{
+	"luci-app-apinfo": {
+		"description": "Grant UCI access for luci-app-apinfo",
+		"read": {
+			"file": {
+				"/etc/crontabs/root": [ "read" ],
+				"/usr/share/apinfo/apinfo.user": [ "read" ]
+			},
+			"ubus": {
+				"apinfo": [ "activity", "scripts", "status" ],
+				"file": [ "read" ],
+				"luci-rpc": [ "getHostHints" ]
+			},
+			"uci": [ "apinfo" ]
+		},
+		"write": {
+			"file": {
+				"/etc/crontabs/root": [ "write" ],
+				"/etc/init.d/cron reload": [ "exec" ],
+				"/usr/bin/apinfo": [ "exec" ],
+				"/usr/bin/scp": [ "exec" ],
+				"/usr/bin/ssh": [ "exec" ],
+				"/usr/bin/sshpass": [ "exec" ],
+				"/usr/share/apinfo/apinfo.user": [ "write" ]
+			},
+			"ubus": {
+				"file": [ "write" ]
+			},
+			"uci": [ "apinfo" ]
+		}
+	}
+}

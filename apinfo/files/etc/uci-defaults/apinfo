@@ -1,0 +1,13 @@
+#!/bin/sh
+
+MIN=$(uci -q get apinfo.@global[0].interval)
+touch /etc/crontabs/root
+grep -q apinfo /etc/crontabs/root || echo "*/${MIN:-5} * * * * /usr/bin/apinfo" >> /etc/crontabs/root
+
+T=$(uci -q get apinfo.@global[0].path)
+if [ -z "$T" ]; then
+	uci set apinfo.@global[0].path="/tmp/apinfo"
+	uci commit apinfo
+fi
+
+exit 0

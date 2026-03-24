@@ -1,0 +1,14 @@
+{
+	"admin/services/apinfo": {
+		"title": "AP Controller",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "apinfo/apinfo"
+		},
+		"depends": {
+			"acl": [ "luci-app-apinfo" ],
+			"uci": { "apinfo": true }
+		}
+	}
+}

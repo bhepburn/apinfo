@@ -1,0 +1,54 @@
+#!/bin/sh
+
+#
+# (c) 2025 Cezary Jackiewicz <cezary@eko.one.pl>
+#
+
+BASEPATH="/tmp/apinfo"
+
+. /lib/functions.sh
+
+get_data_from_host() {
+	local cfg="$1"
+	local enabled ip username password
+
+	config_get_bool enabled "$cfg" enabled 1
+	[ "$enabled" -gt 0 ] || return 0
+
+	config_get ipaddr "$cfg" ipaddr
+	config_get username "$cfg" username
+	[ -z "$ipaddr" ] || [ -z "$username" ] && return 0
+
+	config_get password "$cfg" password
+	config_get port "$cfg" port 22
+
+	config_get usekeyfile "$cfg" usekeyfile 0
+	config_get keyfile "$cfg" keyfile "/root/.ssh/id_dropbear"
+
+	if [ "$usekeyfile" -eq 1 ] && [ -e "$keyfile" ]; then
+		scp -i ${keyfile} -o StrictHostKeyChecking=no -P ${port} /usr/share/apinfo/apinfo-agent ${username}@${ipaddr}:/tmp 2>/dev/null
+		[ $? -eq 0 ] && ssh -q -i ${keyfile} -o StrictHostKeyChecking=no -p ${port} ${username}@${ipaddr} "/tmp/apinfo-agent" > ${BASEPATH}/${ipaddr}-${cfg} 2>/dev/null
+	else
+		sshpass -p "${password}" scp -o StrictHostKeyChecking=no -P ${port} /usr/share/apinfo/apinfo-agent ${username}@${ipaddr}:/tmp 2>/dev/null
+		[ $? -eq 0 ] && sshpass -p "${password}" ssh -q -o StrictHostKeyChecking=no -p ${port} ${username}@${ipaddr} "/tmp/apinfo-agent" > ${BASEPATH}/${ipaddr}-${cfg} 2>/dev/null
+	fi
+	NOW=$(date "+%s")
+	VAL=0
+	if [ -s "${BASEPATH}/${ipaddr}-${cfg}" ]; then
+		TIMESTAMP=$(date +%s -r ${BASEPATH}/${ipaddr}-${cfg})
+		D=$((NOW - TIMESTAMP))
+		[ $D -le 60 ] && VAL=1
+	fi
+	# log only day/hour
+	NOW=$(date +%s -d "$(date -d @"$NOW" "+%Y-%m-%d %H:00")")
+	touch "${BASEPATH}/${ipaddr}.txt"
+	grep -q "$NOW $VAL" "${BASEPATH}/${ipaddr}.txt" || echo "$NOW $VAL" >> "${BASEPATH}/${ipaddr}.txt"
+}
+
+T=$(uci -q get apinfo.@global[0].path)
+[ -n "$T" ] && BASEPATH="$T"
+mkdir -p "$BASEPATH"
+config_load apinfo
+config_foreach get_data_from_host host
+
+exit 0
