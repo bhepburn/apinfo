@@ -19,7 +19,7 @@ msgstr ""
 msgid "6 GHz Clients"
 msgstr ""
 
-msgid "AP Controller"
+msgid "AP Info"
 msgstr ""
 
 msgid "AP Group"

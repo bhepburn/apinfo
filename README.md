@@ -1,4 +1,4 @@
-# AP Controller - Access Point (AP) Management System for OpenWrt/LuCI
+# AP Info - Access Point (AP) Management System for OpenWrt/LuCI
 
 [Wersja polska](README.pl.md)
 

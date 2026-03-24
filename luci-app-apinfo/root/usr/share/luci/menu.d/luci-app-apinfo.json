@@ -1,6 +1,6 @@
 {
 	"admin/services/apinfo": {
-		"title": "AP Controller",
+		"title": "AP Info",
 		"order": 60,
 		"action": {
 			"type": "view",

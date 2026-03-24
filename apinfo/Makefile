@@ -9,7 +9,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/apinfo
 	SECTION:=admin
 	CATEGORY:=Administration
-	TITLE:=AP Controller
+	TITLE:=AP Info
 	DEPENDS:=+sshpass
 	MAINTAINER:=Cezary Jackiewicz <cezary@eko.one.pl>
 	PKGARCH:=all

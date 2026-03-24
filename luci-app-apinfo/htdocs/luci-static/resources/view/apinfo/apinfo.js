@@ -385,7 +385,7 @@ return view.extend({
 		const selectedcolumns = uci.get('apinfo', '@global[0]', 'column') || [];
 
 		let m, s, o;
-		m = new form.Map('apinfo', _('AP Controller'), _('Router and AP Management'));
+		m = new form.Map('apinfo', _('AP Info'), _('Router and AP Management'));
 		m.tabbed = true;
 
 
