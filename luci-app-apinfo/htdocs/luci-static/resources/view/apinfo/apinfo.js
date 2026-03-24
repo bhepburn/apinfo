@@ -445,10 +445,6 @@ return view.extend({
 				let e = nodes.querySelector('#cbi-apinfo-host > h3');
 				if (e) e.parentNode.replaceChild(info, e);
 
-				let clientsContainer = E('div', { id: 'clients-container', style: 'margin-top: 20px;' });
-				clientsContainer.appendChild(renderClientsTable(clients));
-				nodes.appendChild(clientsContainer);
-
 				return nodes;
 			});
 		};
@@ -1057,84 +1053,24 @@ return view.extend({
 		o.default = 'lan';
 
 
-		// AP Group tab
-		s = m.section(form.GridSection, 'group', _('AP Group'));
-		s.addremove = true;
+		// Clients tab
+		s = m.section(form.TypedSection, 'clients', _('Clients'));
 		s.anonymous = true;
-		s.addbtntitle = _('Add new group');
-		s.nodescriptions = true;
-		s.tab('group', _('AP Group'));
 
 		s.renderContents = function(/* ... */) {
-			const renderTask = form.GridSection.prototype.renderContents.apply(this, arguments),
-			    sections = this.cfgsections();
+			const renderTask = form.TypedSection.prototype.renderContents.apply(this, arguments);
 
 			return Promise.resolve(renderTask).then(function(nodes) {
-				let e = nodes.querySelector('#cbi-apinfo-group > h3')
+				let e = nodes.querySelector('#cbi-apinfo-clients > h3');
 				if (e)
 					e.remove();
+
+				let clientsContainer = E('div', { id: 'clients-container', style: 'margin-top: 20px;' });
+				clientsContainer.appendChild(renderClientsTable(clients));
+				nodes.appendChild(clientsContainer);
+
 				return nodes;
 			});
-		};
-
-		o = s.taboption('group', form.Value, 'name', _('Name'), _('User-readable description'));
-		o.rmempty = false;
-
-		o = s.taboption('group', form.MultiValue, 'host', _('Selected Devices'));
-
-		let any = false;
-		uci.sections('apinfo', 'host', function (s) {
-			o.value(s['.name'], s['name'] + ' (' + s['ipaddr'] + ')');
-			any = true;
-		});
-		if (!any) {
-			o.value('', '(' + _('no devices found') + ')');
-		}
-		o.textvalue = function (section_id) {
-			const cfgvalues = this.map.data.get('apinfo', section_id, 'host') || [];
-			let t;
-			let names = [];
-			cfgvalues.forEach(sec => {
-				t = this.map.data.get('apinfo', sec, 'name');
-				if (t)
-					names.push(t);
-			});
-			if (names.length == 0)
-				names = cfgvalues;
-			return names.join(', ');
-		};
-
-		o = s.taboption('group', form.Flag, 'delete', _('Delete all'), _('Delete all Wi-Fi before setting up new ones'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = '0';
-
-		o = s.taboption('group', form.Flag, 'useadditionalscript', _('Use additional script'), _('Use additional script before setting up a Wi-Fi'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = '0';
-
-		any = false;
-		o = s.taboption('group', form.MultiValue, 'wifi', _('Selected Wi-Fi'));
-		uci.sections('apinfo', 'wifi', function (s) {
-			o.value(s['.name'], s['name']);
-			any = true;
-		});
-		if (!any) {
-			o.value('', '(' + _('no Wi-Fi found') + ')');
-		}
-		o.textvalue = function (section_id) {
-			const cfgvalues = this.map.data.get('apinfo', section_id, 'wifi') || [];
-			let t;
-			let names = [];
-			cfgvalues.forEach(sec => {
-				t = this.map.data.get('apinfo', sec, 'name');
-				if (t)
-					names.push(t);
-			});
-			if (names.length == 0)
-				names = cfgvalues;
-			return names.join(', ');
 		};
 
 
@@ -1184,8 +1120,8 @@ return view.extend({
 			const renderTask = form.NamedSection.prototype.renderContents.apply(this, arguments);
 			return Promise.resolve(renderTask).then(function(nodes) {
 				const scripteditor = E('div', { 'class': 'cbi-section cbi-section-descr' }, [
-					E('p', _('If "Use additional script" is selected in the AP Group tab, the following content will be treated \
-						as a shell script and executed before each defined Wi-Fi is created. \
+					E('p', _('The following content will be treated \
+						as a shell script and can be executed on devices. \
 						You can use the following variables: <b>$_ENABLED</b>, <b>$_SSID</b>, <b>$_BAND</b>, <b>$_NETWORK</b>. \
 						These variables will be replaced with the appropriate values from the Wi-Fi. \
 						<b>Verify script before saving and using!</b>')),
