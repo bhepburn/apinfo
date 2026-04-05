@@ -9,7 +9,7 @@
 'require view';
 
 let callHostHints, callapinfoActivity, callapinfoScripts, callapinfo;
-const additionalScriptFile = '/usr/share/apinfo/apinfo.user';
+const additionalScriptFile = '/root/apinfo.sh';
 let additionalScript = '';
 
 callHostHints = rpc.declare({
@@ -91,17 +91,16 @@ return view.extend({
 	},
 
 	handleSaveApply: function(ev, mode) {
-		let value = ((document.querySelector('#apinfoadditionalscript').value || '').trim().replace(/\r\n/g, '\n')) + '\n';
-		fs.write(additionalScriptFile, value)
-			.then(function () {
-				additionalScript = value;
-				document.querySelector('#apinfoadditionalscript').value = additionalScript;
-				document.body.scrollTop = document.documentElement.scrollTop = 0;
-			}).catch(function (e) {
-				document.body.scrollTop = document.documentElement.scrollTop = 0;
-				ui.addNotification(null, E('p', (_('Unable to save additional script') + ': %s').format(e.message)), 'error');
-			});
-
+		let value = ((document.querySelector('#apinfoadditionalscript').value || '').trim().replace(/\r\n/g, '\n'));
+		fs.write(additionalScriptFile, value).then(function () {
+			additionalScript = value;
+			document.querySelector('#apinfoadditionalscript').value = additionalScript;
+			document.body.scrollTop = document.documentElement.scrollTop = 0;
+		}).catch(function (e) {
+			document.body.scrollTop = document.documentElement.scrollTop = 0;
+			ui.addNotification(null, E('p', (_('Unable to save additional script') + ': %s').format(e.message)), 'error');
+		});
+		
 		return this.super('handleSaveApply', [ev, mode]).then(() => {
 			const container = document.querySelector('.cbi-value[data-name="interval"]');
 			if (!container) return;
@@ -329,7 +328,7 @@ return view.extend({
 
 			cbi_update_table(table, rows);
 
-			return E('div', [ E('h3', _('Connected Wireless Clients')), table ]);
+			return table;
 		}
 
 		function refreshDeviceGrid() {
@@ -735,62 +734,17 @@ return view.extend({
 										if (!confirm(_('Are you sure you want to execute the "%s" script?').format(description)))
 											return;
 									}
-									let cmd = '';
-									let args = [];
-									if (row['usekeyfile'] && row['keyfile']) {
-											cmd = 'scp';
-											args = [
-												'-i', row['keyfile'],
-												'-o', 'StrictHostKeyChecking=no',
-												'-P', row['port'],
-												'/usr/share/apinfo/scripts/' + script,
-												row['username'] + '@' + row['ipaddr'] + ':/tmp'
-											];
-									} else {
-											cmd = 'sshpass';
-											args = [
-												'-p', typeof row['password'] !== 'undefined' ? row['password']: '""',
-												'scp',
-												'-o', 'StrictHostKeyChecking=no',
-												'-P', row['port'],
-												'/usr/share/apinfo/scripts/' + script,
-												row['username'] + '@' + row['ipaddr'] + ':/tmp'
-											];
-									}
+									let cmd = '/usr/share/apinfo/scripts/' + script;
+									let args = [
+										row['port'],
+										row['ipaddr']
+									];
 									return fs.exec(cmd, args).then(function(res) {
-										if (row['usekeyfile'] && row['keyfile']) {
-											cmd = 'ssh';
-											args = [
-												'-q',
-												'-i', row['keyfile'],
-												'-o', 'StrictHostKeyChecking=no',
-												'-p', row['port'],
-												row['username'] + '@' + row['ipaddr'],
-												'sh',
-												'/tmp/' + script
-											];
-										} else {
-											cmd = 'sshpass';
-											args = [
-												'-p', typeof row['password'] !== 'undefined' ? row['password']: '""',
-												'ssh',
-												'-q',
-												'-o', 'StrictHostKeyChecking=no',
-												'-p', row['port'],
-												row['username'] + '@' + row['ipaddr'],
-												'sh',
-												'/tmp/' + script
-											];
+										if (res.stdout) document.querySelector('#actionexecstdout').value = res.stdout;
+										if (res.stderr) {
+											res.stderr = res.stderr.replace(/^.*Caution, skipping hostkey check for [\d\.]+\n\n/, "");
+											if (res.stderr) document.querySelector('#actionexecstderr').value = res.stderr;
 										}
-										return fs.exec(cmd, args).then(function(res) {
-											if (res.stdout) document.querySelector('#actionexecstdout').value = res.stdout;
-											if (res.stderr) {
-												res.stderr = res.stderr.replace(/^.*Caution, skipping hostkey check for [\d\.]+\n\n/, "");
-												if (res.stderr) document.querySelector('#actionexecstderr').value = res.stderr;
-											}
-										}).catch(function(err) {
-											document.querySelector('#actionexecstderr').value = err;
-										});
 									}).catch(function(err) {
 										document.querySelector('#actionexecstderr').value = err;
 									});
@@ -873,27 +827,6 @@ return view.extend({
 		o.default = 22;
 		o.datatype = 'port';
 
-		o = s.taboption('host', form.Value, 'username', _('Username'), _('Device Login'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = 'root';
-
-		o = s.taboption('host', form.Flag, 'usekeyfile', _('Use SSH key'), _('Use SSH key instead of password'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = 0;
-
-		o = s.taboption('host', form.Value, 'keyfile', _('SSH Key file'), _('SSH Key file'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = '/root/.ssh/id_dropbear';
-		o.depends('usekeyfile', '1');
-
-		o = s.taboption('host', form.Value, 'password', _('Password'), _('Device Password'));
-		o.modalonly = true;
-		o.password = true;
-		o.depends('usekeyfile', '0');
-
 		Object.entries(devicesmorecolumns).forEach(([key, value]) => {
 			if (selectedcolumns.includes(key) || key == 'status') {
 				o = s.taboption('host', form.DummyValue, '_' + key, value);
@@ -921,138 +854,6 @@ return view.extend({
 			return true;
 		}
 
-
-		// Wi-Fi tab
-		s = m.section(form.GridSection, 'wifi', _('Wi-Fi'));
-		s.addremove = true;
-		s.anonymous = true;
-		s.addbtntitle = _('Add new Wi-Fi');
-		s.nodescriptions = true;
-		s.tab('wifi', _('Wi-Fi'));
-
-		s.renderContents = function(/* ... */) {
-			const renderTask = form.GridSection.prototype.renderContents.apply(this, arguments),
-			    sections = this.cfgsections();
-
-			return Promise.resolve(renderTask).then(function(nodes) {
-				let e = nodes.querySelector('#cbi-apinfo-wifi > h3')
-				if (e)
-					e.remove();
-				return nodes;
-			});
-		};
-
-		s.handleAdd = function(ev) {
-			ev?.preventDefault();
-
-			const newSid = nextFreeSid('wifi', uci.sections('apinfo', 'wifi').length);
-			this.map.data.add('apinfo', 'wifi', newSid);
-
-			return this.map.reset().then(() => {
-				const row = document.querySelector('[data-section-id="' + newSid + '"]');
-				if (row) {
-					const editBtn = row.querySelector('button[title="Edit"], .cbi-button.cbi-button-edit');
-					if (editBtn) editBtn.click();
-
-					setTimeout(() => {
-						const modal = document.querySelector('.modal');
-						if (modal) {
-							const dismissBtn = modal.querySelector('.btn, .cbi-button.cbi-button-reset');
-							if (dismissBtn) {
-								dismissBtn.addEventListener('click', () => {
-									this.map.data.remove('apinfo', newSid);
-									this.map.reset();
-								}, { once: true });
-							}
-						}
-					}, 50);
-				}
-			});
-		};
-
-		o = s.taboption('wifi', form.Value, 'name', _('Name'), _('User-readable description'));
-		o.rmempty = false;
-
-		o = s.taboption('wifi', form.Flag, 'enabled', _('Enabled'), _('Default Wi-Fi state'));
-		o.rmempty = false;
-		o.default = '1';
-
-		o = s.taboption('wifi', form.MultiValue, 'band', _('Wi-Fi Band'));
-		o.rmempty = false;
-		o.value('2g', '2.4 GHz');
-		o.value('5g', '5 GHz');
-		o.value('6g', '6 GHz');
-		o.default = [ '2g', '5g' ];
-		o.textvalue = function (section_id) {
-			const cfgvalues = this.map.data.get('apinfo', section_id, 'band') || [];
-			let names = [];
-			cfgvalues.forEach(band => {
-				switch (band) {
-					case '2g':
-						names.push('2.4 GHz');
-						break;
-					case '5g':
-						names.push('5 GHz');
-						break;
-					case '6g':
-						names.push('6 GHz');
-						break;
-				}
-			});
-			if (names.length == 0)
-				names = cfgvalues;
-			return names.join(', ');
-		};
-
-		o = s.taboption('wifi', form.Value, 'ssid', _('SSID'), _('The name that the APs are to advertise'));
-		o.rmempty = false;
-
-		o = s.taboption('wifi', form.ListValue, 'encryption', _('Encryption'));
-		o.modalonly = true;
-		o.value('sae', _('WPA3 Pers. (SAE)'));
-		o.value('sae-mixed', _('WPA2/WPA3 Pers. (CCMP)'));
-		o.value('psk2', _('WPA2 Pers.'));
-		o.value('psk2+ccmp', _('WPA2 Pers. (CCMP)'));
-		o.value('psk2+tkip', _('WPA2 Pers. (TKIP)'));
-		o.value('psk', _('WPA Pers.'));
-		o.value('psk+ccmp', _('WPA Pers. (CCMP)'));
-		o.value('psk+tkip', _('WPA Pers. (TKIP)'));
-		o.value('psk-mixed+ccmp', _('WPA/WPA2 Pers. (CCMP)'));
-		o.value('psk-mixed+tkip', _('WPA/WPA2 Pers. (TKIP)'));
-		o.value('owe', _('WPA3 OWE (CCMP)'));
-		o.value('none', _('none'));
-		o.default = 'psk2';
-
-		o = s.taboption('wifi', form.Value, 'key', _('Password'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.depends({ encryption: 'sae', '!contains': true });
-		o.depends({ encryption: 'psk', '!contains': true });
-		o.datatype = 'wpakey';
-		o.password = true;
-
-		o = s.taboption('wifi', form.Flag, 'hidden', _('Hide SSID'), _('Do not show network name'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = '0';
-
-		o = s.taboption('wifi', form.Flag, 'isolate', _('Isolate Clients'), _('Prevents client-to-client communication'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.default = '0';
-
-		o = s.taboption('wifi', form.Value, 'network', _('Network'), _('The name of the network to which the Wi-Fi will belong'));
-		o.modalonly = true;
-		o.rmempty = false;
-		o.datatype = 'uciname';
-		o.validate = function(section_id, value) {
-			if (value.length > 15)
-				return _('The interface name is too long');
-			return true;
-		};
-		o.default = 'lan';
-
-
 		// Clients tab
 		s = m.section(form.TypedSection, 'clients', _('Clients'));
 		s.anonymous = true;
@@ -1072,7 +873,6 @@ return view.extend({
 				return nodes;
 			});
 		};
-
 
 		// Settings tab
 		s = m.section(form.TypedSection, 'global', _('Settings'));
@@ -1120,11 +920,7 @@ return view.extend({
 			const renderTask = form.NamedSection.prototype.renderContents.apply(this, arguments);
 			return Promise.resolve(renderTask).then(function(nodes) {
 				const scripteditor = E('div', { 'class': 'cbi-section cbi-section-descr' }, [
-					E('p', _('The following content will be treated \
-						as a shell script and can be executed on devices. \
-						You can use the following variables: <b>$_ENABLED</b>, <b>$_SSID</b>, <b>$_BAND</b>, <b>$_NETWORK</b>. \
-						These variables will be replaced with the appropriate values from the Wi-Fi. \
-						<b>Verify script before saving and using!</b>')),
+					E('p', _('The following content will be treated as a shell script and can be executed on devices over SSH. <b>Verify script before saving and using!</b>')),
 					E('textarea', {
 						'id': 'apinfoadditionalscript',
 						'style': 'width: 100% !important; padding: 5px; font-family: monospace; margin-top: .4em',
@@ -1175,7 +971,7 @@ return view.extend({
 						setTimeout(() => {
 							ui.hideModal();
 							window.location.reload();
-						}, 2000)
+						}, 30000)
 					)
 			})
 		}, [ _('Refresh') ]);

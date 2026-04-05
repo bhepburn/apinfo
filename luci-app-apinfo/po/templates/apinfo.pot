@@ -88,9 +88,6 @@ msgstr ""
 msgid "Device Login"
 msgstr ""
 
-msgid "Device Password"
-msgstr ""
-
 msgid "Device Reading Interval"
 msgstr ""
 
@@ -148,13 +145,7 @@ msgstr ""
 msgid "IPv4"
 msgstr ""
 
-msgid ""
-"If \"Use additional script\" is selected in the AP Group tab, the following "
-"content will be treated as a shell script and executed before each defined "
-"Wi-Fi is created. You can use the following variables: <b>$_ENABLED</b>, "
-"<b>$_SSID</b>, <b>$_BAND</b>, <b>$_NETWORK</b>. These variables will be "
-"replaced with the appropriate values from the Wi-Fi. <b>Verify script before "
-"saving and using!</b>"
+msgid "The following content will be treated as a shell script and can be executed on devices over SSH. <b>Verify script before saving and using!</b>"
 msgstr ""
 
 msgid "Isolate Clients"
@@ -205,9 +196,6 @@ msgstr ""
 msgid "Online"
 msgstr ""
 
-msgid "Password"
-msgstr ""
-
 msgid "Ping"
 msgstr ""
 
@@ -233,9 +221,6 @@ msgid "Result"
 msgstr ""
 
 msgid "Router and AP Management"
-msgstr ""
-
-msgid "SSH Key file"
 msgstr ""
 
 msgid "SSH Port"
@@ -289,12 +274,6 @@ msgstr ""
 msgid "Uptime"
 msgstr ""
 
-msgid "Use SSH key"
-msgstr ""
-
-msgid "Use SSH key instead of password"
-msgstr ""
-
 msgid "Use additional script"
 msgstr ""
 
@@ -302,9 +281,6 @@ msgid "Use additional script before setting up a Wi-Fi"
 msgstr ""
 
 msgid "User-readable description"
-msgstr ""
-
-msgid "Username"
 msgstr ""
 
 msgid "WPA Pers."

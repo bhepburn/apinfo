@@ -65,7 +65,11 @@ if [ -e /etc/config/wireless ]; then
 					json_add_int "wifi" "$T"
 					IPADDR=""
 					NAME=""
-					T=$(awk '/'${_MAC}'/{if($4 == "*"){$4=""};printf "%s %s", $3, $4}' $LEASEFILE)
+					# Some APs don't run DHCP as they defer to router to assign IP addresses
+					T=""
+					if [ -z "$LEASEFILE" ]; then
+						T=$(awk '/'${_MAC}'/{if($4 == "*"){$4=""};printf "%s %s", $3, $4}' $LEASEFILE)
+					fi
 					if [ -n "$T" ]; then
 						set -- $(echo "$T")
 						IPADDR="$1"

@@ -1,7 +1,8 @@
+#!/bin/sh
+
 #desc:Log
 
+ssh -q -o StrictHostKeyChecking=no -p "${1}" "${2}" << EOF
 logread -l 100
-
-rm -- "$0"
 exit 0
-
+EOF

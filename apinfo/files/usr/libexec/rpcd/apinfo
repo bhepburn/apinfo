@@ -21,8 +21,6 @@ show_data_from_host() {
 	config_get name "$cfg" name
 	config_get ipaddr "$cfg" ipaddr
 	config_get port "$cfg" port 22
-	config_get username "$cfg" username
-	config_get password "$cfg" password
 
 	json_add_object
 	json_add_string "section" "$cfg"
@@ -30,8 +28,6 @@ show_data_from_host() {
 	json_add_string "name" "$name"
 	json_add_string "ipaddr" "$ipaddr"
 	json_add_int "port" "$port"
-	json_add_string "username" "$username"
-	json_add_string "password" "$password"
 
 	LASTCONTACT=-1
 	if [ -s "${BASEPATH}/${ipaddr}-${cfg}" ] && [ "$enabled" = "1" ]; then

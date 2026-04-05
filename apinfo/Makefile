@@ -10,13 +10,12 @@ define Package/apinfo
 	SECTION:=admin
 	CATEGORY:=Administration
 	TITLE:=AP Info
-	DEPENDS:=+sshpass
-	MAINTAINER:=Cezary Jackiewicz <cezary@eko.one.pl>
+	DEPENDS:=
 	PKGARCH:=all
 endef
 
 define Package/apinfo/description
-  Simple AP management system
+  Simple AP Info system
 endef
 
 define Package/apinfo/conffiles

@@ -4,7 +4,7 @@
 		"read": {
 			"file": {
 				"/etc/crontabs/root": [ "read" ],
-				"/usr/share/apinfo/apinfo.user": [ "read" ]
+				"/root/apinfo.sh": [ "read" ]
 			},
 			"ubus": {
 				"apinfo": [ "activity", "scripts", "status" ],
@@ -18,10 +18,9 @@
 				"/etc/crontabs/root": [ "write" ],
 				"/etc/init.d/cron reload": [ "exec" ],
 				"/usr/bin/apinfo": [ "exec" ],
-				"/usr/bin/scp": [ "exec" ],
-				"/usr/bin/ssh": [ "exec" ],
-				"/usr/bin/sshpass": [ "exec" ],
-				"/usr/share/apinfo/apinfo.user": [ "write" ]
+				"/usr/share/apinfo/scripts/001-log": [ "exec" ],
+				"/usr/share/apinfo/scripts/999-reboot": [ "exec" ],
+				"/root/apinfo.sh": [ "read" ]
 			},
 			"ubus": {
 				"file": [ "write" ]
