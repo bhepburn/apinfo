@@ -1,22 +1,23 @@
 #!/bin/sh
-
-#
-# (c) 2025 Cezary Jackiewicz <cezary@eko.one.pl>
-#
+# shellcheck shell=ash
 
 BASEPATH="/tmp/apinfo"
 T=$(uci -q get apinfo.@global[0].path)
 [ -n "$T" ] && BASEPATH="$T"
 mkdir -p "$BASEPATH"
 
+# shellcheck source=/dev/null
 . /lib/functions.sh
+# shellcheck source=/dev/null
 . /usr/share/libubox/jshn.sh
 
+# Called indirectly by config_foreach
+# shellcheck disable=SC2329
 show_data_from_host() {
 	local cfg="$1"
 	local oldns
-	local hostname model load uptime mac software ssid
 
+	local enabled name ipaddr port
 	config_get_bool enabled "$cfg" enabled 1
 	config_get name "$cfg" name
 	config_get ipaddr "$cfg" ipaddr
@@ -31,13 +32,15 @@ show_data_from_host() {
 
 	LASTCONTACT=-1
 	if [ -s "${BASEPATH}/${ipaddr}-${cfg}" ] && [ "$enabled" = "1" ]; then
-		FILEMODTIME=$(date +%s -r $BASEPATH/${ipaddr}-${cfg})
+		FILEMODTIME=$(date +%s -r "$BASEPATH/${ipaddr}-${cfg}")
 		NOW=$(date +%s)
 		LASTCONTACT=$((NOW - FILEMODTIME))
 
 		json_set_namespace host oldns
 		json_init
 		json_load_file "${BASEPATH}/${ipaddr}-${cfg}"
+
+		local hostname model load uptime mac software
 		json_get_vars hostname model load uptime mac software
 
 		# enter the radios
@@ -45,42 +48,45 @@ show_data_from_host() {
 
 		# for every radio
 		json_get_keys "radios"
+		# Radios set in json_get_keys call
+		# shellcheck disable=SC2154
 		for radio in ${radios}; do
 			# select radioX
 			json_select "${radio}"
 
+			local _band
 			json_select "config"
 			json_get_var _band "band"
-			json_get_var _htmode "htmode"
 			json_select ..
 
 			# iterate through the interfaces
 			json_select "interfaces"
 			iidx=1 # note that array element position starts from 1 not, 0
-			while json_is_a $iidx object; do
+			while json_is_a "$iidx" object; do
 				# select interfaceX
-				json_select  $iidx
+				json_select "$iidx"
 
 				json_get_var _ifname "ifname"
 
 				# get the ssid and band for the interface
+				local _ssid
 				json_select "config"
 				json_get_var _ssid "ssid"
 				json_select ..
 
 				# setup an array for clients associated to this interface
-				json_set_namespace $oldns
+				json_set_namespace "$oldns"
 				json_add_array "clientslist${_ifname}"
 				json_set_namespace host oldns
 
 				# iterate through the stations
 				json_select "stations"
 				sidx=1 # note that array element position starts from 1 not, 0
-				while json_is_a $sidx object; do
+				while json_is_a "$sidx" object; do
 					# select stationX
-					json_select  $sidx
+					json_select "$sidx"
 					
-					
+					local _mac _rx _tx _signal _connected _wifi _ipaddr _name
 					json_get_var _mac "mac"
 					json_get_var _rx "rx"
 					json_get_var _tx "tx"
@@ -90,7 +96,7 @@ show_data_from_host() {
 					json_get_var _ipaddr "ipaddr"
 					json_get_var _name "name"
 
-					json_set_namespace $oldns
+					json_set_namespace "$oldns"
 					json_add_object
 					json_add_string "band" "$_band"
 					json_add_string "ssid" "$_ssid"
@@ -111,7 +117,7 @@ show_data_from_host() {
 					sidx=$(( sidx + 1 ))
 				done
 
-				json_set_namespace $oldns
+				json_set_namespace "$oldns"
 				json_close_array
 				json_set_namespace host oldns
 
@@ -129,7 +135,7 @@ show_data_from_host() {
 		json_select ..
 
 		json_cleanup
-		json_set_namespace $oldns
+		json_set_namespace "$oldns"
 
 		json_add_string "hostname" "$hostname"
 		json_add_string "model" "$model"
@@ -144,23 +150,27 @@ show_data_from_host() {
 }
 
 show_activity() {
-	read input
+	read -r input
 	json_load "$input"
 	json_get_var section section
 
 	json_init
 
+	# section is set by json_get_var above
+	# shellcheck disable=SC2154
 	ipaddr=$(uci_get "apinfo" "$section" "ipaddr" "")
 	enabled=$(uci_get "apinfo" "$section" "enabled" "0")
 	json_add_array "activity"
 	if [ -n "$ipaddr" ] && [ -s "${BASEPATH}/${ipaddr}.txt" ] && [ "$enabled" = "1" ]; then
 		while read -r LINE; do
+			# Word splitting is intentional here to parse timestamp and value
+			# shellcheck disable=SC2086
 			set -- $LINE
 			json_add_object
-			json_add_int "timestamp" $1
-			json_add_int "value" $2
+			json_add_int "timestamp" "$1"
+			json_add_int "value" "$2"
 			json_close_object
-		done < <(tail -n 672 "${BASEPATH}/${ipaddr}.txt")
+		done < "${BASEPATH}/${ipaddr}.txt"
 	fi
 	json_close_array
 	json_dump
@@ -169,14 +179,14 @@ show_activity() {
 show_scripts() {
 	json_init
 	json_add_array "scripts"
-	for FILE in $(find /usr/share/apinfo/scripts -type f); do
+	find /usr/share/apinfo/scripts -type f | while read -r FILE; do
 		DESC=$(awk '/^#desc:/{gsub("#desc:", "");print $0}' "$FILE" | head -n1)
 		grep -q "^#warn" "$FILE" && WARN=1 || WARN=0
 		T=$(basename "$FILE")
 		json_add_object
 		json_add_string "file" "$T"
 		json_add_string "description" "${DESC:-$T}"
-		json_add_int "warn" $WARN
+		json_add_int "warn" "$WARN"
 		json_close_object
 	done
 	json_close_array

@@ -1,10 +1,12 @@
 # AP Info - Access Point (AP) Information View for OpenWrt/LuCI
 
-A lightweight monitoring tool for OpenWrt-based access points, developed as an extension for OpenWrt/LuCI. It provides visibility into access points, the devices connected to them, and a framework for executing user-defined scripts on access points without requiring additional software packages to be installed.
+This project is based entirely on work done by [Cezary Jackiewicz](https://github.com/obsy/apcontroller).
+
+I have forked existing code and modified to be a lightweight monitoring tool for OpenWrt-based access points, developed as an extension for OpenWrt/LuCI. It provides visibility into access points, the devices connected to them, and a framework for executing user-defined scripts on access points without requiring additional software packages to be installed.
 
 This package is expected to be installed on a primary OpenWrt-based routing device that connects to all defined access points to gather information about connected clients and Wi-Fi access points.
 
-**Important:** This package does NOT make any changes to access point configurations. Any configuration changes must be explicitly implemented by the user through custom scripts.
+**Important:** This package does NOT make any changes to access point configurations. Any configuration changes must be explicitly implemented by the user through custom scripts.  Upstream project by [Cezary Jackiewicz](https://github.com/obsy/apcontroller) has more settings to handle setting wifi settings on access points and should be consumed for those who want to centrally manage access points.
  
 The application provides the following features:
 - Enabling/disabling device monitoring and presenting device operation parameters

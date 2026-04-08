@@ -1,35 +1,38 @@
 #!/bin/sh
-
-#
-# (c) 2025 Cezary Jackiewicz <cezary@eko.one.pl>
-#
+# shellcheck shell=ash
 
 BASEPATH="/tmp/apinfo"
 ADDITIONALSCRIPT="/root/apinfo.sh"
 
 
+# shellcheck source=/dev/null
 . /lib/functions.sh
 
+# Called indirectly by config_foreach
+# shellcheck disable=SC2329
 get_data_from_host() {
 	local cfg="$1"
-	local enabled ip
 
+	local enabled
 	config_get_bool enabled "$cfg" enabled 1
 	[ "$enabled" -gt 0 ] || return 0
 
+	local ipaddr
 	config_get ipaddr "$cfg" ipaddr
 	[ -z "$ipaddr" ] && return 0
+
+	local port
 	config_get port "$cfg" port 22
 	
-	cat /usr/share/apinfo/apinfo-agent | ssh -q -o StrictHostKeyChecking=no -p ${port} ${ipaddr} "/bin/sh" > ${BASEPATH}/${ipaddr}-${cfg} 2>/dev/null
-	[ -s "${ADDITIONALSCRIPT}" ] && cat ${ADDITIONALSCRIPT} | ssh -q -o StrictHostKeyChecking=no -p ${port} ${ipaddr} "/bin/sh" 2>/dev/null
+	cat /usr/share/apinfo/apinfo-agent | ssh -q -o StrictHostKeyChecking=no -p "${port}" "${ipaddr}" "/bin/sh" > "${BASEPATH}/${ipaddr}-${cfg}" 2>/dev/null
+	[ -s "${ADDITIONALSCRIPT}" ] && cat "${ADDITIONALSCRIPT}" | ssh -q -o StrictHostKeyChecking=no -p "${port}" "${ipaddr}" "/bin/sh" 2>/dev/null
 
 	NOW=$(date "+%s")
 	VAL=0
 	if [ -s "${BASEPATH}/${ipaddr}-${cfg}" ]; then
-		TIMESTAMP=$(date +%s -r ${BASEPATH}/${ipaddr}-${cfg})
+		TIMESTAMP=$(date +%s -r "${BASEPATH}/${ipaddr}-${cfg}")
 		D=$((NOW - TIMESTAMP))
-		[ $D -le 60 ] && VAL=1
+		[ "$D" -le 60 ] && VAL=1
 	fi
 	# log only day/hour
 	NOW=$(date +%s -d "$(date -d @"$NOW" "+%Y-%m-%d %H:00")")
