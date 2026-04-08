@@ -104,7 +104,7 @@ The monitoring system collects the following information from each access point:
 - Hostname, model, and MAC address
 - Software version (OpenWrt release)
 - System load and uptime
-- Active wireless channels (2.4GHz, 5GHz, 6GHz)
+- Active wireless radios
 - Connected wireless clients with details:
   - SSID, MAC address, and IP address
   - Client hostname (from DHCP leases or ARP table)

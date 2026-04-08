@@ -38,20 +38,49 @@ show_data_from_host() {
 		json_set_namespace host oldns
 		json_init
 		json_load_file "${BASEPATH}/${ipaddr}-${cfg}"
-		json_get_vars hostname model load uptime mac software ssid channels2g channels5g channels6g
+		json_get_vars hostname model load uptime mac software
 
-		for BAND in 2g 5g 6g; do
-			if json_is_a "clientslist${BAND}" array; then
+		# enter the radios
+		json_select "radios"
+
+		# for every radio
+		json_get_keys "radios"
+		for radio in ${radios}; do
+			# select radioX
+			json_select "${radio}"
+
+			json_select "config"
+			json_get_var _band "band"
+			json_get_var _htmode "htmode"
+			json_select ..
+
+			# iterate through the interfaces
+			json_select "interfaces"
+			iidx=1 # note that array element position starts from 1 not, 0
+			while json_is_a $iidx object; do
+				# select interfaceX
+				json_select  $iidx
+
+				json_get_var _ifname "ifname"
+
+				# get the ssid and band for the interface
+				json_select "config"
+				json_get_var _ssid "ssid"
+				json_select ..
+
+				# setup an array for clients associated to this interface
 				json_set_namespace $oldns
-				json_add_array "clientslist${BAND}"
+				json_add_array "clientslist${_ifname}"
 				json_set_namespace host oldns
 
-				json_select "clientslist${BAND}"
-
-				idx=1
-				while json_is_a $idx object; do
-					json_select $idx
-					json_get_var _ssid "ssid"
+				# iterate through the stations
+				json_select "stations"
+				sidx=1 # note that array element position starts from 1 not, 0
+				while json_is_a $sidx object; do
+					# select stationX
+					json_select  $sidx
+					
+					
 					json_get_var _mac "mac"
 					json_get_var _rx "rx"
 					json_get_var _tx "tx"
@@ -63,6 +92,7 @@ show_data_from_host() {
 
 					json_set_namespace $oldns
 					json_add_object
+					json_add_string "band" "$_band"
 					json_add_string "ssid" "$_ssid"
 					json_add_string "mac" "$_mac"
 					json_add_int "rx" "$_rx"
@@ -75,17 +105,28 @@ show_data_from_host() {
 					json_close_object
 					json_set_namespace host oldns
 
+					# leave stationX
 					json_select ..
-					idx=$(( idx + 1 ))
+
+					sidx=$(( sidx + 1 ))
 				done
 
 				json_set_namespace $oldns
 				json_close_array
 				json_set_namespace host oldns
 
+				# leave interfaceX > stations
 				json_select ..
-			fi
+				json_select ..
+
+				iidx=$(( iidx + 1 ))
+			done
+			# select radioX > interfaces
+			json_select ..
+			json_select ..
 		done
+		# leave radios
+		json_select ..
 
 		json_cleanup
 		json_set_namespace $oldns
@@ -96,9 +137,6 @@ show_data_from_host() {
 		json_add_int "uptime" "$uptime"
 		json_add_string "mac" "$mac"
 		json_add_string "software" "$software"
-		[ -n "$channels2g" ] && json_add_string "channels2g" "$channels2g"
-		[ -n "$channels5g" ] && json_add_string "channels5g" "$channels5g"
-		[ -n "$channels6g" ] && json_add_string "channels6g" "$channels6g"
 	fi
 	json_add_int "lastcontact" "$LASTCONTACT"
 

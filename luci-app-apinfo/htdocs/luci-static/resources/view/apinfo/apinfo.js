@@ -150,12 +150,6 @@ return view.extend({
 			'software': _('Software'),
 			'uptime': _('Uptime'),
 			'load': _('Load Average'),
-			'clients2g': _('2.4 GHz Clients'),
-			'clients5g': _('5 GHz Clients'),
-			'clients6g': _('6 GHz Clients'),
-			'channels2g': _('2.4 GHz Channel(s)'),
-			'channels5g': _('5 GHz Channel(s)'),
-			'channels6g': _('6 GHz Channel(s)')
 		};
 
 		const clientscolumns = {
@@ -180,13 +174,6 @@ return view.extend({
 
 				if (row['mac'])
 					row['mac'] = row['mac'].toUpperCase();
-
-				if (row['channels2g'])
-					row['channels2g'] = row['channels2g'].replaceAll(' ', ', ')
-				if (row['channels5g'])
-					row['channels5g'] = row['channels5g'].replaceAll(' ', ', ')
-				if (row['channels6g'])
-					row['channels6g'] = row['channels6g'].replaceAll(' ', ', ')
 
 				row['.lastcontact'] = row['lastcontact'];
 				if (row['.lastcontact'] > -1) {
@@ -216,33 +203,15 @@ return view.extend({
 				} else
 					row['uptime'] = '-';
 
-				if (row['clientslist2g']) {
-					row['clients2g'] = String(row['clientslist2g'].length);
-					let t = row['clientslist2g'].map(obj => ({
-						...obj,
-						ap: ap,
-						band: 2
-					}));
-					clients = clients.concat(t);
-				}
-				if (row['clientslist5g']) {
-					row['clients5g'] = String(row['clientslist5g'].length);
-					let t = row['clientslist5g'].map(obj => ({
-						...obj,
-						ap: ap,
-						band: 5
-					}));
-					clients = clients.concat(t);
-				}
-				if (row['clientslist6g']) {
-					row['clients6g'] = String(row['clientslist6g'].length);
-					let t = row['clientslist6g'].map(obj => ({
-						...obj,
-						ap: ap,
-						band: 6
-					}));
-					clients = clients.concat(t);
-				}
+				Object.keys(row)
+					.filter(key => /^clientslist.+$/.test(key) && Array.isArray(row[key]))
+					.forEach(key => {
+						let t = row[key].map(obj => ({
+							...obj,
+							ap: ap
+						}));
+						clients = clients.concat(t);
+					});
 			})
 			clients.forEach(c => {
 				const mac = c.mac.toUpperCase();
@@ -303,9 +272,9 @@ return view.extend({
 			function formatCell(key, client) {
 				switch (key) {
 					case 'band':
-						if (client.band == 2) return '2.4 GHz';
-						if (client.band == 5) return '5 GHz';
-						if (client.band == 6) return '6 GHz';
+						if (client.band === '2g') return '2.4 GHz';
+						if (client.band === '5g') return '5 GHz';
+						if (client.band === '6g') return '6 GHz';
 						return '-';
 					case 'wifi':
 						return client.wifi > 0 ? 'Wi-Fi ' + client.wifi : '-';
