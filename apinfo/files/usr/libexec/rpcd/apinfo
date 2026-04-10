@@ -15,7 +15,7 @@ mkdir -p "$BASEPATH"
 # shellcheck disable=SC2329
 show_data_from_host() {
 	local cfg="$1"
-	local oldns
+	local finaljson
 
 	local enabled name ipaddr port
 	config_get_bool enabled "$cfg" enabled 1
@@ -36,7 +36,7 @@ show_data_from_host() {
 		NOW=$(date +%s)
 		LASTCONTACT=$((NOW - FILEMODTIME))
 
-		json_set_namespace host oldns
+		json_set_namespace host finaljson
 		json_init
 		json_load_file "${BASEPATH}/${ipaddr}-${cfg}"
 
@@ -75,9 +75,9 @@ show_data_from_host() {
 				json_select ..
 
 				# setup an array for clients associated to this interface
-				json_set_namespace "$oldns"
+				json_set_namespace "$finaljson"
 				json_add_array "clientslist${_ifname}"
-				json_set_namespace host oldns
+				json_set_namespace host finaljson
 
 				# iterate through the stations
 				json_select "stations"
@@ -96,7 +96,7 @@ show_data_from_host() {
 					json_get_var _ipaddr "ipaddr"
 					json_get_var _name "name"
 
-					json_set_namespace "$oldns"
+					json_set_namespace "$finaljson"
 					json_add_object
 					json_add_string "band" "$_band"
 					json_add_string "ssid" "$_ssid"
@@ -109,7 +109,7 @@ show_data_from_host() {
 					json_add_string "ipaddr" "$_ipaddr"
 					json_add_string "name" "$_name"
 					json_close_object
-					json_set_namespace host oldns
+					json_set_namespace host finaljson
 
 					# leave stationX
 					json_select ..
@@ -117,9 +117,9 @@ show_data_from_host() {
 					sidx=$(( sidx + 1 ))
 				done
 
-				json_set_namespace "$oldns"
+				json_set_namespace "$finaljson"
 				json_close_array
-				json_set_namespace host oldns
+				json_set_namespace host finaljson
 
 				# leave interfaceX > stations
 				json_select ..
@@ -135,7 +135,7 @@ show_data_from_host() {
 		json_select ..
 
 		json_cleanup
-		json_set_namespace "$oldns"
+		json_set_namespace "$finaljson"
 
 		json_add_string "hostname" "$hostname"
 		json_add_string "model" "$model"

@@ -20,7 +20,7 @@
 				"/usr/bin/apinfo": [ "exec" ],
 				"/usr/share/apinfo/scripts/001-log": [ "exec" ],
 				"/usr/share/apinfo/scripts/999-reboot": [ "exec" ],
-				"/root/apinfo.sh": [ "read" ]
+				"/root/apinfo.sh": [ "write" ]
 			},
 			"ubus": {
 				"file": [ "write" ]
