@@ -11,11 +11,50 @@ mkdir -p "$BASEPATH"
 # shellcheck source=/dev/null
 . /usr/share/libubox/jshn.sh
 
+# Check radio connectivity status based on JSON data
+check_connectivity() {
+	local ipaddr=$1
+	local cfg=$2
+	local radio_name=$3
+	local disabled=$4
+	local up=$5
+	local client_count=$6
+
+	local last_state_file="${BASEPATH}/${ipaddr}-${cfg}-${radio_name}"
+	local last_state=""
+
+	# Read the last state from the file
+	if [ -f "$last_state_file" ]; then
+		last_state=$(cat "$last_state_file")
+	fi
+
+	# Basic check: whether radio is disabled?
+	if [ "$disabled" = "true" ] || [ "$disabled" = "1" ]; then
+		[ "$last_state" != "disabled" ] && echo "disabled" >"$last_state_file"
+	# Check if radio is down
+	elif [ "$up" = "false" ] || [ "$up" = "0" ] || [ -z "$up" ]; then
+		[ "$last_state" != "down" ] && echo "down" >"$last_state_file"
+	# Radio is up but check for signal issues with clients
+	elif [ "$up" = "true" ] || [ "$up" = "1" ]; then
+		# Key improvement: whether there are clients connected?
+		if [ "$client_count" -gt 0 ]; then
+			# Radio is up with clients - this is normal operation
+			[ "$last_state" != "normal" ] && echo "normal" >"$last_state_file"
+		else
+			# Radio is up but no clients - still considered normal
+			[ "$last_state" != "normal_no_clients" ] && echo "normal_no_clients" >"$last_state_file"
+		fi
+	else
+		# Default to unknown state
+		[ "$last_state" != "unknown" ] && echo "unknown" >"$last_state_file"
+	fi
+}
+
 # Called indirectly by config_foreach
 # shellcheck disable=SC2329
 show_data_from_host() {
 	local cfg="$1"
-	local oldns
+	local finaljson
 
 	local enabled name ipaddr port
 	config_get_bool enabled "$cfg" enabled 1
@@ -36,7 +75,7 @@ show_data_from_host() {
 		NOW=$(date +%s)
 		LASTCONTACT=$((NOW - FILEMODTIME))
 
-		json_set_namespace host oldns
+		json_set_namespace host finaljson
 		json_init
 		json_load_file "${BASEPATH}/${ipaddr}-${cfg}"
 
@@ -54,14 +93,28 @@ show_data_from_host() {
 			# select radioX
 			json_select "${radio}"
 
-			local _band
+			local _disabled _up
+			json_get_var _disabled "disabled"
+			json_get_var _up "up"
+			
+			local _band _channel _htmode
 			json_select "config"
 			json_get_var _band "band"
+			json_get_var _channel "channel"
+			json_get_var _htmode "htmode"
 			json_select ..
 
+			# Count total clients for this radio
+			local radio_client_count=0
+			
 			# iterate through the interfaces
 			json_select "interfaces"
 			iidx=1 # note that array element position starts from 1 not, 0
+			
+			# Variables to store iwinfo data from first interface
+			local _iwinfo_signal _iwinfo_noise _iwinfo_bitrate _iwinfo_channel
+			local _iwinfo_found=0
+			
 			while json_is_a "$iidx" object; do
 				# select interfaceX
 				json_select "$iidx"
@@ -73,16 +126,28 @@ show_data_from_host() {
 				json_select "config"
 				json_get_var _ssid "ssid"
 				json_select ..
+				
+				# Get iwinfo data from first interface (if available)
+				if [ "$_iwinfo_found" = "0" ] && json_is_a "iwinfo" object; then
+					json_select "iwinfo"
+					json_get_var _iwinfo_signal "signal"
+					json_get_var _iwinfo_noise "noise"
+					json_get_var _iwinfo_bitrate "bitrate"
+					json_get_var _iwinfo_channel "channel"
+					_iwinfo_found=1
+					json_select ..
+				fi
 
 				# setup an array for clients associated to this interface
-				json_set_namespace "$oldns"
+				json_set_namespace "$finaljson"
 				json_add_array "clientslist${_ifname}"
-				json_set_namespace host oldns
+				json_set_namespace host finaljson
 
 				# iterate through the stations
 				json_select "stations"
 				sidx=1 # note that array element position starts from 1 not, 0
 				while json_is_a "$sidx" object; do
+					radio_client_count=$((radio_client_count + 1))
 					# select stationX
 					json_select "$sidx"
 					
@@ -96,7 +161,7 @@ show_data_from_host() {
 					json_get_var _ipaddr "ipaddr"
 					json_get_var _name "name"
 
-					json_set_namespace "$oldns"
+					json_set_namespace "$finaljson"
 					json_add_object
 					json_add_string "band" "$_band"
 					json_add_string "ssid" "$_ssid"
@@ -109,7 +174,7 @@ show_data_from_host() {
 					json_add_string "ipaddr" "$_ipaddr"
 					json_add_string "name" "$_name"
 					json_close_object
-					json_set_namespace host oldns
+					json_set_namespace host finaljson
 
 					# leave stationX
 					json_select ..
@@ -117,9 +182,9 @@ show_data_from_host() {
 					sidx=$(( sidx + 1 ))
 				done
 
-				json_set_namespace "$oldns"
+				json_set_namespace "$finaljson"
 				json_close_array
-				json_set_namespace host oldns
+				json_set_namespace host finaljson
 
 				# leave interfaceX > stations
 				json_select ..
@@ -129,13 +194,38 @@ show_data_from_host() {
 			done
 			# select radioX > interfaces
 			json_select ..
+			
+			# Check connectivity for this radio and add status to output
+			check_connectivity "$ipaddr" "$cfg" "$radio" "$_disabled" "$_up" "$radio_client_count"
+			
+			# Add radio info to output namespace
+			json_set_namespace "$oldns"
+			json_add_array "radioslist${radio}"
+			json_add_object
+			json_add_string "radio" "$radio"
+			json_add_string "band" "$_band"
+			json_add_string "channel" "$_channel"
+			json_add_string "htmode" "$_htmode"
+			json_add_boolean "disabled" "$_disabled"
+			json_add_boolean "up" "$_up"
+			json_add_int "clients" "$radio_client_count"
+			if [ "$_iwinfo_found" = "1" ]; then
+				json_add_int "signal" "$_iwinfo_signal"
+				json_add_int "noise" "$_iwinfo_noise"
+				json_add_int "bitrate" "$_iwinfo_bitrate"
+				json_add_int "iwinfo_channel" "$_iwinfo_channel"
+			fi
+			json_close_object
+			json_close_array
+			json_set_namespace host oldns
+			
 			json_select ..
 		done
 		# leave radios
 		json_select ..
 
 		json_cleanup
-		json_set_namespace "$oldns"
+		json_set_namespace "$finaljson"
 
 		json_add_string "hostname" "$hostname"
 		json_add_string "model" "$model"
@@ -179,13 +269,14 @@ show_activity() {
 show_scripts() {
 	json_init
 	json_add_array "scripts"
-	find /usr/share/apinfo/scripts -type f | while read -r FILE; do
+	for FILE in /usr/share/apinfo/scripts/*; do
+		[ -f "$FILE" ] || continue
 		DESC=$(awk '/^#desc:/{gsub("#desc:", "");print $0}' "$FILE" | head -n1)
 		grep -q "^#warn" "$FILE" && WARN=1 || WARN=0
-		T=$(basename "$FILE")
+		FILE_NAME=$(basename "$FILE")
 		json_add_object
-		json_add_string "file" "$T"
-		json_add_string "description" "${DESC:-$T}"
+		json_add_string "file" "$FILE_NAME"
+		json_add_string "description" "${DESC:-$FILE_NAME}"
 		json_add_int "warn" "$WARN"
 		json_close_object
 	done

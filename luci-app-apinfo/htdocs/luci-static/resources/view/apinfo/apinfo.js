@@ -68,9 +68,9 @@ function hostStatus(records, section_id) {
 			return E('span', { 'style': 'color: gray' }, _('Unknown'));
 		else
 			if (timestamp - lastContact_ts > parseInt(interval) * 2.5 * 60)
-				return E('span', { 'style': 'color: red' }, '● ' + _('Offline'));
+				return E('span', { 'style': 'color: red' }, _('Offline'));
 			else
-				return E('span', { 'style': 'color: green' }, '● ' + _('Online'));
+				return E('span', { 'style': 'color: green' }, _('Online'));
 	}
 }
 
@@ -138,6 +138,7 @@ return view.extend({
 		const hosts = data[0];
 		let devicestatus = {};
 		let clients = [];
+		let radios = [];
 		updateDeviceStatus(data[1]);
 		additionalScript = data[2];
 
@@ -145,7 +146,6 @@ return view.extend({
 			'status': _('Status'),
 			'lastcontact': _('Last Contact'),
 			'mac': _('MAC Address'),
-			'hostname': _('Hostname'),
 			'model': _('Model'),
 			'software': _('Software'),
 			'uptime': _('Uptime'),
@@ -166,12 +166,25 @@ return view.extend({
 			'tx': _('TX')
 		};
 
+		const radioscolumns = {
+			'device': _('Device Name'),
+			'radio': _('Radio'),
+			'band': _('Band'),
+			'channel': _('Channel'),
+			'signal': _('Signal'),
+			'noise': _('Noise'),
+			'bitrate': _('Bitrate'),
+			'clients': _('Clients'),
+			'status': _('Status')
+		};
+
 		function updateDeviceStatus(records) {
 			devicestatus = records;
 			clients.length = 0;
+			radios.length = 0;
 			(devicestatus.hosts).forEach(row => {
 				const ap = uci.get('apinfo', row['section'], 'name');
-
+	
 				if (row['mac'])
 					row['mac'] = row['mac'].toUpperCase();
 
@@ -212,6 +225,16 @@ return view.extend({
 						}));
 						clients = clients.concat(t);
 					});
+
+				Object.keys(row)
+					.filter(key => /^radioslist.+$/.test(key) && Array.isArray(row[key]))
+					.forEach(key => {
+						let t = row[key].map(obj => ({
+							...obj,
+							device: ap
+						}));
+						radios = radios.concat(t);
+					});
 			})
 			clients.forEach(c => {
 				const mac = c.mac.toUpperCase();
@@ -249,6 +272,30 @@ return view.extend({
 					}
 				}
 			}
+
+			// Refresh radios table
+			const radiostablediv = document.querySelector('#radios-container');
+			if (radiostablediv) {
+				let table = radiostablediv.querySelector('table');
+				if (table) {
+					let t = L.dom.findClassInstance(table);
+					let sort = null;
+					if (typeof t.getActiveSortState === 'function')
+						sort = t.getActiveSortState();
+					radiostablediv.innerHTML = '';
+					radiostablediv.appendChild(renderRadiosTable(radios));
+					if (sort !== null) {
+						table = radiostablediv.querySelector('table');
+						if (table) {
+							t = L.dom.findClassInstance(table);
+							if (typeof t.setActiveSortState === 'function') {
+								t.setActiveSortState(sort[0], sort[1]);
+								t.update(t.data, t.placeholder);
+							}
+						}
+					}
+				}
+			}
 		}
 
 		function renderClientsTable(clients) {
@@ -259,8 +306,7 @@ return view.extend({
 						])
 					]);
 
-			const selectedclientscolumns = uci.get('apinfo', '@global[0]', 'clientcolumn') || [];
-			let displayColumns = selectedclientscolumns.length > 0 ? selectedclientscolumns : Object.keys(clientscolumns);
+			let displayColumns = Object.keys(clientscolumns);
 
 			let headerRow = E('tr', { 'class': 'tr table-titles' },
 				displayColumns.map(key =>
@@ -300,6 +346,58 @@ return view.extend({
 			return table;
 		}
 
+		function renderRadiosTable(radios) {
+			if (!radios || radios.length === 0)
+				return E('table', { 'class': 'table table-striped cbi-section-table' }, [
+						E('tr', { 'class': 'tr cbi-section-table-row placeholder' }, [
+							E('td', { 'class': 'td' }, E('em', _('No radio information available')))
+						])
+					]);
+
+			let displayColumns = Object.keys(radioscolumns);
+
+			let headerRow = E('tr', { 'class': 'tr table-titles' },
+				displayColumns.map(key =>
+					E('th', { 'class': 'th' }, [ radioscolumns[key] ])
+				)
+			);
+			let table = E('table', { 'class': 'table table-striped' }, [ headerRow ]);
+
+			function formatCell(key, radio) {
+				switch (key) {
+					case 'band':
+						if (radio.band === '2g') return '2.4 GHz';
+						if (radio.band === '5g') return '5 GHz';
+						if (radio.band === '6g') return '6 GHz';
+						return radio.band || '-';
+					case 'channel':
+						return radio.channel || '-';
+					case 'signal':
+						return (radio.signal != null && radio.signal !== 0) ? radio.signal + ' dBm' : '-';
+					case 'noise':
+						return (radio.noise != null && radio.noise !== 0) ? radio.noise + ' dBm' : '-';
+					case 'bitrate':
+						return radio.bitrate ? '%1000.1mbit/s'.format(radio.bitrate) : '-';
+					case 'clients':
+						return radio.clients || 0;
+					case 'status':
+						if (radio.disabled) return E('span', { 'style': 'color: gray' }, _('Disabled'));
+						if (!radio.up) return E('span', { 'style': 'color: red' }, _('Down'));
+						return E('span', { 'style': 'color: green' }, _('Up'));
+					default:
+						return radio[key] || '-';
+				}
+			}
+
+			let rows = radios.map(radio =>
+				displayColumns.map(key => formatCell(key, radio))
+			);
+
+			cbi_update_table(table, rows);
+
+			return table;
+		}
+
 		function refreshDeviceGrid() {
 
 			let devicesall = 0;
@@ -324,19 +422,17 @@ return view.extend({
 				})
 
 				Object.entries(devicesmorecolumns).forEach(([key, value]) => {
-					if (selectedcolumns.includes(key) || key == 'status') {
-						const cell = row.querySelector('[data-name="_' + key + '"]');
-						if (!cell) return;
+					const cell = row.querySelector('[data-name="_' + key + '"]');
+					if (!cell) return;
 
-						cell.innerHTML = '';
-						if (key == 'status') {
-							let status = hostStatus([hostRecord], section_id)
-							if (status.textContent.includes(_('Online'))) devicesonline++;
-							if (status.textContent.includes(_('Offline'))) devicesoffline++;
-							cell.appendChild(status);
-						} else
-							cell.appendChild(hostInfo(key, [hostRecord], section_id));
-					}
+					cell.innerHTML = '';
+					if (key == 'status') {
+						let status = hostStatus([hostRecord], section_id)
+						if (status.textContent.includes(_('Online'))) devicesonline++;
+						if (status.textContent.includes(_('Offline'))) devicesoffline++;
+						cell.appendChild(status);
+					} else
+						cell.appendChild(hostInfo(key, [hostRecord], section_id));
 				});
 				devicesall ++;
 			});
@@ -349,8 +445,6 @@ return view.extend({
 			e = document.querySelector('#devicesunknown');
 			if (e) e.textContent = devicesall - devicesonline - devicesoffline;
 		};
-
-		const selectedcolumns = uci.get('apinfo', '@global[0]', 'column') || [];
 
 		let m, s, o;
 		m = new form.Map('apinfo', _('AP Info'), _('Router and AP Management'));
@@ -725,17 +819,17 @@ return view.extend({
 					E('textarea', {
 						'id': 'actionexecstdout',
 						'spellcheck': 'false',
-						'wrap': 'off',
+						'wrap': 'soft',
 						'rows': 25,
-						'style': 'white-space: nowrap'
+						'style': 'white-space: pre-wrap; font-family: monospace;'
 					}, [ ]),
 					E('span', _('Errors')),
 					E('textarea', {
 						'id': 'actionexecstderr',
 						'spellcheck': 'false',
-						'wrap': 'off',
+						'wrap': 'soft',
 						'rows': 10,
-						'style': 'white-space: nowrap'
+						'style': 'white-space: pre-wrap; font-family: monospace;'
 					}, [ ]),
 					E('div', { 'class': 'right' }, [
 						E('button', {
@@ -751,13 +845,9 @@ return view.extend({
 		o.rmempty = false;
 		o.editable = true;
 		o.default = '1';
-		if (!selectedcolumns.includes('enabled'))
-			o.modalonly = true;
 
 		o = s.taboption('host', form.Value, 'name', _('Name'), _('User-readable description'));
 		o.rmempty = false;
-		if (!selectedcolumns.includes('name'))
-			o.modalonly = true;
 		o.textvalue = function (section_id) {
 			const name = this.map.data.get('apinfo', section_id, 'name');
 			const url = this.map.data.get('apinfo', section_id, 'url');
@@ -775,8 +865,6 @@ return view.extend({
 		o = s.taboption('host', form.Value, 'ipaddr', _('Host Address'), _('Hostname or IP Address'));
 		o.rmempty = false;
 		o.datatype = 'or(hostname,ip4addr("nomask"))';
-		if (!selectedcolumns.includes('ipaddr'))
-			o.modalonly = true;
 
 		let ipaddrs = {};
 
@@ -797,17 +885,15 @@ return view.extend({
 		o.datatype = 'port';
 
 		Object.entries(devicesmorecolumns).forEach(([key, value]) => {
-			if (selectedcolumns.includes(key) || key == 'status') {
-				o = s.taboption('host', form.DummyValue, '_' + key, value);
-				o.rawhtml = true;
-				o.write = function() {};
-				o.remove = function() {};
-				o.modalonly = false;
-				if (key == 'status')
-					o.textvalue = hostStatus.bind(o, devicestatus.hosts);
-				else
-					o.textvalue = hostInfo.bind(o, key, devicestatus.hosts);
-			}
+			o = s.taboption('host', form.DummyValue, '_' + key, value);
+			o.rawhtml = true;
+			o.write = function() {};
+			o.remove = function() {};
+			o.modalonly = false;
+			if (key == 'status')
+				o.textvalue = hostStatus.bind(o, devicestatus.hosts);
+			else
+				o.textvalue = hostInfo.bind(o, key, devicestatus.hosts);
 		});
 
 		o = s.taboption('host', form.Value, 'url', _('GUI URL'), _('Link to device GUI address'));
@@ -822,6 +908,26 @@ return view.extend({
 			}
 			return true;
 		}
+
+		// Radios tab
+		s = m.section(form.TypedSection, 'radios', _('Radios'));
+		s.anonymous = true;
+
+		s.renderContents = function(/* ... */) {
+			const renderTask = form.TypedSection.prototype.renderContents.apply(this, arguments);
+
+			return Promise.resolve(renderTask).then(function(nodes) {
+				let e = nodes.querySelector('#cbi-apinfo-radios > h3');
+				if (e)
+					e.remove();
+
+				let radiosContainer = E('div', { id: 'radios-container', style: 'margin-top: 20px;' });
+				radiosContainer.appendChild(renderRadiosTable(radios));
+				nodes.appendChild(radiosContainer);
+
+				return nodes;
+			});
+		};
 
 		// Clients tab
 		s = m.section(form.TypedSection, 'clients', _('Clients'));
@@ -864,20 +970,6 @@ return view.extend({
 
 		o = s.option(form.Value, 'interval', _('Device Reading Interval'), _('[minutes] The period in which devices will be periodically polled'));
 		o.datatype = 'and(uinteger,min(1),max(9999))';
-
-		o = s.option(form.MultiValue, 'column', _('Devices List Columns'), _('List of columns to display in the devices list'));
-		o.value('enabled', _('Enabled'));
-		o.value('name', _('Name'));
-		o.value('ipaddr', _('Host Address'));
-		Object.entries(devicesmorecolumns).forEach(([key, value]) => {
-			if (key != 'status')
-				o.value(key, value);
-		});
-
-		o = s.option(form.MultiValue, 'clientcolumn', _('Clients List Columns'), _('List of columns to display in the clients list'));
-		Object.entries(clientscolumns).forEach(([key, value]) => {
-			o.value(key, value);
-		});
 
 
 		// Custom script

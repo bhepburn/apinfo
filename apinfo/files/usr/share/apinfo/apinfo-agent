@@ -9,7 +9,6 @@
 json_init
 
 if [ -e /etc/config/wireless ]; then
-	# Inject the radio information into a radios json object and load into result
 	WIRELESSSTATUS="{ \"radios\": $(ubus call network.wireless status 2>/dev/null) }"
 	json_load "${WIRELESSSTATUS}"
 else
@@ -58,9 +57,50 @@ for radio in ${radios}; do
 		json_select ..
 
 		# TODO: populate iwinfo for each interface for things like signal and radio name
-		#json_add_object "iwinfo"
-		#json_close_object
+		json_set_namespace iwinfo finaljson
+		json_init
+		IWINFO=$(ubus call iwinfo info "{ \"device\": \"${ifname}\" }")
+		json_load "${IWINFO}"
+		
+		json_get_var _ssid ssid
+		json_get_var _bssid bssid
+		json_get_var _channel channel
+		json_get_var _center_chan1 center_chan1
+		json_get_var _frequency frequency
+		json_get_var _frequency_offset frequency_offset
+		json_get_var _txpower txpower
+		json_get_var _txpower_offset txpower_offset
+		json_get_var _quality quality
+		json_get_var _quality_max quality_max
+		json_get_var _signal signal
+		json_get_var _noise noise
+		json_get_var _bitrate bitrate
+		json_get_var _hwmodes_text hwmodes_text
 
+		json_select hardware
+		json_get_var _hardware_name name
+		json_select ..
+
+		json_set_namespace "$finaljson"
+		json_add_object "iwinfo"
+		json_add_string ssid "$_ssid"
+		json_add_string bssid "$_bssid"
+		json_add_int channel "$_channel"
+		json_add_int center_chan1 "$_center_chan1"
+		json_add_int frequency "$_frequency"
+		json_add_int frequency_offset "$_frequency_offset"
+		json_add_int txpower "$_txpower"
+		json_add_int txpower_offset "$_txpower_offset"
+		json_add_int quality "$_quality"
+		json_add_int quality_max "$_quality_max"
+		json_add_int signal "$_signal"
+		json_add_int noise "$_noise"
+		json_add_int bitrate "$_bitrate"
+		json_add_string hwmodes_text "$_hwmodes_text"
+		json_add_string "hardware_name" "$_hardware_name"
+		
+		json_close_object
+	
 		# select stations to insert
 		json_select "stations"
 
